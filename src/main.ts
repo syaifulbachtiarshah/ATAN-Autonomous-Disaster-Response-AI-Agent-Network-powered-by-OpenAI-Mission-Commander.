@@ -38,14 +38,29 @@ let voiceNote = '';
 function loadSettings(): ProviderSettings[] {
   try {
     const saved = localStorage.getItem(storageKey);
-    return saved ? JSON.parse(saved) : defaultSettings;
+    if (!saved) return defaultSettings.map((provider) => ({ ...provider }));
+    const parsed: unknown = JSON.parse(saved);
+    if (!Array.isArray(parsed)) throw new Error('Invalid settings');
+    return defaultSettings.map((fallback) => {
+      const candidate = parsed.find((value) => value && typeof value === 'object' && value.id === fallback.id);
+      return candidate && typeof candidate.endpoint === 'string' && typeof candidate.model === 'string' && typeof candidate.enabled === 'boolean'
+        ? { ...fallback, endpoint: candidate.endpoint, model: candidate.model, enabled: candidate.enabled }
+        : { ...fallback };
+    });
   } catch {
-    return defaultSettings;
+    return defaultSettings.map((provider) => ({ ...provider }));
   }
 }
 
 function getPublicAppUrl(): string {
-  return window.__ENV__?.VITE_PUBLIC_APP_URL || window.location.href;
+  const configured = window.__ENV__?.VITE_PUBLIC_APP_URL?.trim();
+  if (!configured) return window.location.href;
+  try {
+    const url = new URL(configured);
+    return ['http:', 'https:'].includes(url.protocol) ? url.href : window.location.href;
+  } catch {
+    return window.location.href;
+  }
 }
 
 function createQrImageUrl(text: string): string {
@@ -139,9 +154,9 @@ function renderActivity(): string {
 
   return `
     <dl>
-      <dt>Penyedia</dt><dd>${activity.providerLabel}</dd>
-      <dt>Sebab</dt><dd>${activity.reason}</dd>
-      <dt>Status</dt><dd>${activity.status}</dd>
+      <dt>Penyedia</dt><dd>${escapeHtml(activity.providerLabel)}</dd>
+      <dt>Sebab</dt><dd>${escapeHtml(activity.reason)}</dd>
+      <dt>Status</dt><dd>${escapeHtml(activity.status)}</dd>
       <dt>Masa respons</dt><dd>${activity.responseTimeMs ?? '-'} ms</dd>
       <dt>Jenis</dt><dd>${activity.simulated ? 'Simulasi' : 'Langsung'}</dd>
       ${activity.error ? `<dt>Ralat</dt><dd>${escapeHtml(activity.error)}</dd>` : ''}
@@ -152,9 +167,9 @@ function renderActivity(): string {
 function renderProviderSetting(provider: ProviderSettings, index: number): string {
   return `
     <div class="provider">
-      <label><input data-index="${index}" class="enabled" type="checkbox" ${provider.enabled ? 'checked' : ''}/>${provider.label}</label>
-      <input aria-label="Endpoint ${provider.label}" class="endpoint" data-index="${index}" value="${escapeHtml(provider.endpoint)}"/>
-      <input aria-label="Model ${provider.label}" class="model" data-index="${index}" value="${escapeHtml(provider.model)}"/>
+      <label><input data-index="${index}" class="enabled" type="checkbox" ${provider.enabled ? 'checked' : ''}/>${escapeHtml(provider.label)}</label>
+      <input aria-label="Endpoint ${escapeHtml(provider.label)}" class="endpoint" data-index="${index}" value="${escapeHtml(provider.endpoint)}"/>
+      <input aria-label="Model ${escapeHtml(provider.label)}" class="model" data-index="${index}" value="${escapeHtml(provider.model)}"/>
       <button class="secondary test" data-index="${index}">Test status</button>
     </div>
   `;
@@ -193,10 +208,11 @@ function listen(): void {
     render();
   };
   recognition.onresult = (event) => {
-    const prompt = document.querySelector<HTMLTextAreaElement>('#prompt');
-    if (prompt) prompt.value = event.results[0][0].transcript;
+    const transcript = event.results[0][0].transcript;
     voiceNote = 'Arahan suara diterima.';
     render();
+    const prompt = document.querySelector<HTMLTextAreaElement>('#prompt');
+    if (prompt) prompt.value = transcript;
   };
   recognition.start();
 }

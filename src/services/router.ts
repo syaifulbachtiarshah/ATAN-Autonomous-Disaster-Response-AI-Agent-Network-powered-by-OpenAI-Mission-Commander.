@@ -1,10 +1,14 @@
 import { adapters } from './providers.js';
 import type { AiRequest, AiResponse, ProviderId, ProviderSettings, RouteDecision } from '../types/ai.js';
 
+function publicEnv(name: string, fallback: string): string {
+  return (typeof window !== 'undefined' && window.__ENV__?.[name]) || fallback;
+}
+
 export const defaultSettings: ProviderSettings[] = [
-  { id: 'openai', label: 'OpenAI', enabled: false, endpoint: 'https://api.openai.com/v1', model: 'gpt-4.1-mini' },
-  { id: 'gemini', label: 'Google Gemini', enabled: false, endpoint: 'https://generativelanguage.googleapis.com/v1beta/models', model: 'gemini-1.5-flash' },
-  { id: 'local', label: 'Ollama / OpenCode Lokal', enabled: false, endpoint: 'http://localhost:11434/v1', model: 'llama3.1' },
+  { id: 'openai', label: 'OpenAI Mission Commander', enabled: false, endpoint: publicEnv('VITE_OPENAI_PROXY_URL', '/api/providers/openai'), model: 'gpt-5.6' },
+  { id: 'gemini', label: 'Google Gemini', enabled: false, endpoint: publicEnv('VITE_GEMINI_PROXY_URL', '/api/providers/gemini'), model: 'gemini-2.5-flash' },
+  { id: 'local', label: 'Ollama / OpenCode Lokal', enabled: false, endpoint: publicEnv('VITE_LOCAL_OPENAI_ENDPOINT', 'http://localhost:11434/v1'), model: 'llama3.1' },
   { id: 'demo', label: 'Demo ATAN', enabled: true, endpoint: 'demo://atan', model: 'simulasi-atan' },
 ];
 
