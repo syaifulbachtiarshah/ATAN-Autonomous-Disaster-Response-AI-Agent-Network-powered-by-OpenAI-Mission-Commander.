@@ -15,9 +15,14 @@ const contentTypes = {
 
 http
   .createServer((request, response) => {
-    const requestPath = request.url === '/' ? '/index.html' : request.url?.split('?')[0] || '/index.html';
-    let filePath = path.join(root, requestPath);
+    const requestPath = request.url === '/' ? 'index.html' : decodeURIComponent(request.url?.split('?')[0] || '/index.html').replace(/^[/\\]+/, '');
+    let filePath = path.resolve(root, requestPath);
+    if (filePath !== root && !filePath.startsWith(`${root}${path.sep}`)) {
+      response.writeHead(403).end('Forbidden');
+      return;
+    }
     if (!fs.existsSync(filePath)) filePath = path.join(root, 'index.html');
+    response.setHeader('X-Content-Type-Options', 'nosniff');
     response.setHeader('Content-Type', contentTypes[path.extname(filePath)] || 'text/plain');
     fs.createReadStream(filePath).pipe(response);
   })
